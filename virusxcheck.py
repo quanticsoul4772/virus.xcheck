@@ -675,7 +675,7 @@ def main():
     if args.html:
         if not HTML_REPORTER_AVAILABLE:
             print(f"{Fore.RED}Error: HTML report generation requires additional dependencies. Please install them using:")
-            print(f"pip install jinja2 plotly pandas{Style.RESET_ALL}")
+            print(f"pip install virusxcheck[report]{Style.RESET_ALL}")
             if not args.output:
                 sys.exit(1)
         else:
