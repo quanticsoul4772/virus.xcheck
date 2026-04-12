@@ -42,11 +42,10 @@ pip install -r requirements.txt
    ```
    VIRUSXCHECK_API_KEY=your_api_key_here
    ```
-   Alternatively, you can provide the API key via command line:
+   Alternatively, you can use the `--save-config` option to set your keys interactively:
    ```bash
-   python virusxcheck.py -s "hash_value" -k "your_api_key_here" --save-config
+   python virusxcheck.py --save-config
    ```
-   The `--save-config` option will save the API key to the .env file for future use.
 
 ## Usage
 Execute the script from the command line with the following options:
