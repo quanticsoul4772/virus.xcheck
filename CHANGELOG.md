@@ -5,6 +5,9 @@
 - Remove deprecated PDF reporter
 - Remove stale CLI flags from README (-k, --vt-apikey)
 - Update Python version requirement to 3.8+ in README
+- Move plotly, pandas, and jinja2 to optional `[report]` extra (#18)
+- Add graceful import error for missing report dependencies
+- Update README with PyPI install instructions, badges, and quick start
 
 ## 0.2.0
 
