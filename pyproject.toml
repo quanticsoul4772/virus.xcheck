@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "virusxcheck"
+version = "1.0.0"
+description = "Cross-check file hashes against Virus Exchange and VirusTotal databases"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    { name = "Lewis Wigmore" },
+]
+keywords = ["malware", "virustotal", "virus-exchange", "hash", "security"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+dependencies = [
+    "requests~=2.31",
+    "python-dotenv~=1.0",
+    "colorama~=0.4.6",
+    "plotly~=5.18",
+    "tqdm~=4.66",
+    "fpdf2~=2.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/lewiswigmore/virus.xcheck"
+Repository = "https://github.com/lewiswigmore/virus.xcheck"
+Issues = "https://github.com/lewiswigmore/virus.xcheck/issues"
+
+[project.scripts]
+virusxcheck = "virusxcheck:main"

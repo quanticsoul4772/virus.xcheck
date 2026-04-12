@@ -5,13 +5,6 @@ PDF Report Generator module for Virus.xcheck
 import os
 from datetime import datetime
 from fpdf2 import FPDF
-import pandas as pd
-import tempfile
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch, mm
 
 
 class VirusXcheckPDF(FPDF):   
