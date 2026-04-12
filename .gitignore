@@ -2,19 +2,14 @@
 Lib/
 Scripts/
 share/
-tests/
 __pycache__/
 *.pyc
 *.env
 .env
-test_*/
 
-# Ignore test scripts
-test_*.py
-
-# Ignore test output files
-test_*.html
-test_*.pdf
-test_*.csv
-test_*.json
-test_*.txt
+# Ignore test output files (not the tests themselves)
+test_output/
+*.test.html
+*.test.pdf
+*.test.csv
+*.test.json
