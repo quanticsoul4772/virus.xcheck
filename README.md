@@ -36,6 +36,16 @@ Install the required packages using the provided requirements.txt file:
 pip install -r requirements.txt
 ```
 
+### HTML Reports (Optional)
+
+To generate interactive HTML reports, install with the report extra:
+
+```bash
+pip install virusxcheck[report]
+```
+
+This installs additional dependencies (plotly, pandas, jinja2) needed for HTML report generation.
+
 ### API Key Setup
 1. Get an API key from [Virus.Exchange](https://virus.exchange/)
 2. Create a `.env` file in the root directory with your API key:
