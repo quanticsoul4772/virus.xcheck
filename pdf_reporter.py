@@ -1,9 +1,21 @@
 """
 PDF Report Generator module for Virus.xcheck
+
+DEPRECATED: This module is deprecated and will be removed in a future version.
+The HTML reporter is the recommended output format for rich reports.
 """
 
+import warnings
 import os
 from datetime import datetime
+
+warnings.warn(
+    "pdf_reporter is deprecated and will be removed in a future version. "
+    "Use the HTML reporter instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from fpdf2 import FPDF
 
 
