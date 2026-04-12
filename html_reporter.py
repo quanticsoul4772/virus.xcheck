@@ -3,6 +3,8 @@ HTML Report Generator for Virus.xcheck
 This module generates interactive HTML reports with charts for hash analysis results
 """
 
+from __future__ import annotations
+
 import os
 import json
 import pandas as pd
@@ -309,7 +311,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
-def jinja_filesizeformat_filter(value, binary=False):
+def jinja_filesizeformat_filter(value: float | str | None, binary: bool = False) -> str:
     """Format file sizes for Jinja2 template"""
     if value is None or value == 'N/A':
         return "Unknown"
@@ -328,13 +330,13 @@ def jinja_filesizeformat_filter(value, binary=False):
 
 
 class HTMLReporter:
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the HTML reporter"""
         self.env = Environment(autoescape=True)
         self.env.filters['filesizeformat'] = jinja_filesizeformat_filter
         self.template = self.env.from_string(HTML_TEMPLATE)
     
-    def create_detection_chart(self, results):
+    def create_detection_chart(self, results: dict) -> str:
         """Create a bar chart for detection rates"""
         data = []
         
@@ -432,7 +434,7 @@ class HTMLReporter:
         
         return chart_js
     
-    def create_distribution_chart(self, results):
+    def create_distribution_chart(self, results: dict) -> str:
         """Create a gauge chart for detection rates distribution, providing better visualization of malicious presence"""
         detection_rates = []
         
@@ -534,7 +536,7 @@ class HTMLReporter:
         
         return chart_js
     
-    def create_tags_chart(self, results):
+    def create_tags_chart(self, results: dict) -> str:
         """Create a bar chart for common tags"""
         # Collect all tags
         all_tags = {}
@@ -576,7 +578,7 @@ class HTMLReporter:
         
         return chart_js
     
-    def generate_report(self, results, output_file):
+    def generate_report(self, results: dict, output_file: str) -> str:
         """Generate HTML report with interactive charts"""
         # Generate charts
         detection_chart_js = self.create_detection_chart(results)
@@ -623,7 +625,7 @@ class HTMLReporter:
 
 
 # Function to use from main application
-def generate_html_report(results, output_file):
+def generate_html_report(results: dict, output_file: str) -> str:
     """Generate an HTML report with interactive charts from results"""
     reporter = HTMLReporter()
     return reporter.generate_report(results, output_file)

@@ -9,6 +9,8 @@
                                                                                         
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import warnings
@@ -54,9 +56,9 @@ load_dotenv()
 DEFAULT_API_KEY = os.getenv("VIRUSXCHECK_API_KEY", "")
 DEFAULT_VT_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 
-def read_csv(file_path):
+def read_csv(file_path: str) -> list[str]:
     # Extract SHA256 hashes from a CSV file using regex
-    hashes = []
+    hashes: list[str] = []
     hex_pattern = re.compile(r'\b[a-fA-F0-9]{64}\b')  # Pattern to match SHA256
     try:
         with open(file_path, mode='r', newline='', encoding='utf-8') as file:
@@ -75,14 +77,14 @@ def read_csv(file_path):
         exit(1)
 
 class VirusExchangeAPI:
-    def __init__(self, api_key):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"Bearer {api_key}"})
-    
+
     @sleep_and_retry
     @limits(calls=15, period=1)
-    def get_sample_details(self, sha256_hash):
+    def get_sample_details(self, sha256_hash: str) -> dict:
         # Get sample details from the Virus.Exchange API
         url = f"{API_BASE_URL}/samples/{sha256_hash}"
         try:
@@ -109,7 +111,7 @@ class VirusExchangeAPI:
                 "virustotal_url": f"https://www.virustotal.com/gui/file/{sha256_hash}"
             }
     
-    def fallback_check(self, sha256_hash):
+    def fallback_check(self, sha256_hash: str) -> dict:
         # Fallback method to check S3 bucket directly if the API fails
         vx_url = f"https://s3.us-east-1.wasabisys.com/vxugmwdb/{sha256_hash}"
         virustotal_url = f"https://www.virustotal.com/gui/file/{sha256_hash}"
@@ -140,17 +142,17 @@ class VirusExchangeAPI:
             }
 
 class VirusTotalAPI:
-    def __init__(self, api_key):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.session = requests.Session()
         self.session.headers.update({
             "x-apikey": api_key,
             "Accept": "application/json"
         })
-    
+
     @sleep_and_retry
     @limits(calls=4, period=60)  # VT API rate limits: 4 requests per minute for standard API keys
-    def get_file_report(self, file_hash):
+    def get_file_report(self, file_hash: str) -> dict | None:
         # Get detailed file information from the VirusTotal API
         if not self.api_key:
             return None
@@ -167,7 +169,7 @@ class VirusTotalAPI:
         except requests.RequestException as e:
             return {"error": f"Request Error: {e}"}
     
-    def extract_scan_results(self, vt_data):
+    def extract_scan_results(self, vt_data: dict | None) -> dict | None:
         # Pull out the important bits from the VirusTotal API response
         if not vt_data or "error" in vt_data:
             return vt_data
@@ -204,9 +206,9 @@ class VirusTotalAPI:
         except Exception as e:
             return {"error": f"Error parsing VirusTotal data: {str(e)}"}
 
-def check_hash(hash_value, api, vt_api=None):
+def check_hash(hash_value: str, api: VirusExchangeAPI, vt_api: VirusTotalAPI | None = None) -> dict:
     # Checks a hash using the Virus.Exchange API with fallback and VirusTotal lookup if available
-    result = {}
+    result: dict = {}
     
     # Validate hash length and type
     if len(hash_value) == 64:  # SHA-256
@@ -250,7 +252,7 @@ def check_hash(hash_value, api, vt_api=None):
     else:
         return {"status": "Invalid hash length", "virustotal_url": None}
 
-def write_to_csv(file_path, data):
+def write_to_csv(file_path: str, data: dict) -> None:
     # Export results to a CSV file with all the metadata we've collected
     with open(file_path, 'w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
@@ -324,12 +326,12 @@ def write_to_csv(file_path, data):
                 vt_tags
             ])
 
-def write_to_json(file_path, data):
+def write_to_json(file_path: str, data: dict) -> None:
     # Save all the collected data in a nicely formatted JSON file
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
 
-def pretty_print_results(results):
+def pretty_print_results(results: dict) -> None:
     # Format and display the results with nice colors and clear organization
     print()
     print(f"{Fore.CYAN}{'═'*80}{Style.RESET_ALL}")
@@ -481,7 +483,7 @@ def pretty_print_results(results):
         
         print(f"{Fore.CYAN}{'─'*80}{Style.RESET_ALL}\n")
 
-def update_env_file(api_key):
+def update_env_file(api_key: str) -> None:
     # Saves a new API key to the .env file for future use
     env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     
@@ -512,7 +514,7 @@ def update_env_file(api_key):
     with open(env_file, 'w') as f:
         f.writelines(content)
 
-def update_env_file_multiple(env_content):
+def update_env_file_multiple(env_content: dict[str, str]) -> None:
     # Batch updates to the .env file with multiple API keys
     env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     
@@ -544,7 +546,7 @@ def update_env_file_multiple(env_content):
     with open(env_file, 'w') as f:
         f.writelines(content)
 
-def main():
+def main() -> None:
     # Restore stderr only for controlled output
     try:
         # First save original args for later use to avoid potential stderr output
