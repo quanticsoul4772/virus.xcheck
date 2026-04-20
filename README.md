@@ -7,7 +7,10 @@
   ╚═══╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝
 ```
 <p align="left">
-      <a href="https://github.com/lewiswigmore"><img src="https://img.shields.io/badge/GitHub-Follow%20on%20GitHub-inactive.svg?logo=github"></a>
+      <a href="https://github.com/lewiswigmore/virus.xcheck/releases"><img src="https://img.shields.io/github/v/release/lewiswigmore/virus.xcheck" alt="Version"></a>
+      <a href="https://github.com/lewiswigmore/virus.xcheck"><img src="https://img.shields.io/badge/python-3.8%2B-blue" alt="Python 3.8+"></a>
+      <a href="https://github.com/lewiswigmore/virus.xcheck/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lewiswigmore/virus.xcheck" alt="License"></a>
+      <a href="https://github.com/lewiswigmore/virus.xcheck"><img src="https://img.shields.io/badge/GitHub-Follow%20on%20GitHub-inactive.svg?logo=github"></a>
 </p>
  
 ## Overview
@@ -25,14 +28,31 @@ Virus.xcheck is a Python tool designed to check the existence of file hashes in 
 - Interactive HTML reports with visualisations
 
 ## Requirements
-- Python 3.6+
+- Python 3.8+
 
 ## Installation
 
-### Using pip
-Install the required packages using the provided requirements.txt file:
+### From PyPI (Recommended)
 
 ```bash
+pip install virusxcheck
+```
+
+### HTML Reports (Optional)
+
+To generate interactive HTML reports, install with the report extra:
+
+```bash
+pip install virusxcheck[report]
+```
+
+This installs additional dependencies (plotly, pandas, jinja2) needed for HTML report generation.
+
+### From Source
+
+```bash
+git clone https://github.com/lewiswigmore/virus.xcheck.git
+cd virus.xcheck
 pip install -r requirements.txt
 ```
 
@@ -42,39 +62,50 @@ pip install -r requirements.txt
    ```
    VIRUSXCHECK_API_KEY=your_api_key_here
    ```
-   Alternatively, you can provide the API key via command line:
+   Alternatively, you can use the `--save-config` option to set your keys interactively:
    ```bash
-   python virusxcheck.py -s "hash_value" -k "your_api_key_here" --save-config
+   virusxcheck --save-config
    ```
-   The `--save-config` option will save the API key to the .env file for future use.
+
+## Quick Start
+
+```bash
+pip install virusxcheck
+virusxcheck --save-config            # Set up your API key
+virusxcheck -s "sha256_hash_value"   # Check a single hash
+virusxcheck -f hashes.csv -o out.json --html report.html  # Batch check with report
+```
 
 ## Usage
+
+> **Note:** After installing via `pip install virusxcheck`, you can use the `virusxcheck` command directly. If running from source, use `python virusxcheck.py` instead.
+
 Execute the script from the command line with the following options:
 
 ### Check a single hash
 ```bash
-python virusxcheck.py -s "hash_value"
+virusxcheck -s "hash_value"
 ```
 
 ### Process multiple hashes from a CSV file
 ```bash
-python virusxcheck.py -f /path/to/your/hashes.csv
+virusxcheck -f /path/to/your/hashes.csv
 ```
 
 ### Save results to a file
 ```bash
-python virusxcheck.py -f /path/to/hashes.csv -o /path/to/results.csv
-python virusxcheck.py -s "hash_value" -o /path/to/results.json
+virusxcheck -f /path/to/hashes.csv -o /path/to/results.csv
+virusxcheck -s "hash_value" -o /path/to/results.json
 ```
 
 ### Generate HTML report
 ```bash
-python virusxcheck.py -f /path/to/hashes.csv --html report.html
+virusxcheck -f /path/to/hashes.csv --html report.html
 ```
 
 ### Disable colored output
 ```bash
-python virusxcheck.py -s "hash_value" --no-color
+virusxcheck -s "hash_value" --no-color
 ```
 
 ## Test Examples
@@ -89,7 +120,7 @@ d00853e592bccd823027e7e685d88c5a1f76a5a36ec5b7073d49ee633b050cc8
 ### Testing with Sample CSV
 Create a file `test_hashes.csv` with the above hashes and run:
 ```bash
-python virusxcheck.py -f test_hashes.csv --html results/report.html -o results/output.csv
+virusxcheck -f test_hashes.csv --html results/report.html -o results/output.csv
 ```
 
 ### Sample Output
@@ -113,10 +144,8 @@ The terminal will display detailed information about each hash, including:
 - `-s, --single`: Single hash string to check
 - `-f, --file`: Path to CSV file containing hashes
 - `-o, --output`: Path to output file (CSV or JSON format)
-- `-k, --apikey`: Virus.Exchange API key
-- `--vt-apikey`: VirusTotal API key
 - `--html`: Generate HTML report with interactive charts
-- `--save-config`: Save API keys to .env file
+- `--save-config`: Interactively save API keys to .env file
 - `--no-color`: Disable colored output
 
 ## Output Formats
@@ -182,5 +211,22 @@ The CSV output includes columns for:
 - VT First Seen
 - VT Tags
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes.
+
+## Security
+
+For security concerns, please see [SECURITY.md](SECURITY.md).
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
 ## Disclaimer
+
 This tool is for informational purposes only. Ensure you have the right to access and check the hashes against the database and always comply with the terms of service of the Virus Exchange and VirusTotal APIs.

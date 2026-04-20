@@ -11,16 +11,12 @@
 
 from __future__ import annotations
 
+__version__ = "0.2.1"
+
 import os
 import sys
+import stat
 import warnings
-
-warnings.filterwarnings("ignore")
-# Suppress stderr output to avoid clutter
-original_stderr = sys.stderr
-null_device = open(os.devnull, 'w')
-sys.stderr = null_device
-
 import csv
 import requests
 import argparse
@@ -35,6 +31,13 @@ from pathlib import Path
 from datetime import datetime
 from tabulate import tabulate
 from dotenv import load_dotenv
+
+# Suppress only the specific noisy urllib3 warning
+from urllib3.exceptions import InsecureRequestWarning
+warnings.filterwarnings("ignore", category=InsecureRequestWarning)
+
+# Compiled regex for strict SHA-256 hash validation
+SHA256_PATTERN = re.compile(r'^[a-fA-F0-9]{64}$')
 
 # Try to import HTML reporter, but don't crash if it's not available
 try:
@@ -71,10 +74,10 @@ def read_csv(file_path: str) -> list[str]:
         return hashes
     except FileNotFoundError:
         print(f"{Fore.RED}Error: File not found - {file_path}{Style.RESET_ALL}")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(f"{Fore.RED}An error occurred while reading the file: {e}{Style.RESET_ALL}")
-        exit(1)
+        sys.exit(1)
 
 class VirusExchangeAPI:
     def __init__(self, api_key: str) -> None:
@@ -206,12 +209,32 @@ class VirusTotalAPI:
         except Exception as e:
             return {"error": f"Error parsing VirusTotal data: {str(e)}"}
 
+def validate_hash(hash_value: str) -> str | None:
+    """Validate that a hash is strictly hex characters of a known length.
+    Returns the hash type string or None if invalid."""
+    if not re.fullmatch(r'[a-fA-F0-9]+', hash_value):
+        return None
+    length = len(hash_value)
+    if length == 64:
+        return "sha256"
+    elif length == 40:
+        return "sha1"
+    elif length == 32:
+        return "md5"
+    elif length == 128:
+        return "sha512"
+    return None
+
 def check_hash(hash_value: str, api: VirusExchangeAPI, vt_api: VirusTotalAPI | None = None) -> dict:
     # Checks a hash using the Virus.Exchange API with fallback and VirusTotal lookup if available
     result: dict = {}
     
-    # Validate hash length and type
-    if len(hash_value) == 64:  # SHA-256
+    hash_type = validate_hash(hash_value)
+    if hash_type is None:
+        return {"status": "Invalid hash format", "virustotal_url": None}
+    
+    # SHA-256 hashes get full VX + VT lookup
+    if hash_type == "sha256":
         try:
             # First check in Virus.Exchange
             vx_result = api.get_sample_details(hash_value)
@@ -239,7 +262,7 @@ def check_hash(hash_value: str, api: VirusExchangeAPI, vt_api: VirusTotalAPI | N
             return result
     
     # For other hash types (MD5, SHA-1, SHA-512)
-    elif len(hash_value) in [32, 40, 128]:  # MD5, SHA-1, or SHA-512
+    elif hash_type in ("md5", "sha1", "sha512"):
         result = {"status": "Hash type not supported in VX database", "virustotal_url": f"https://www.virustotal.com/gui/file/{hash_value}"}
         # Still try VirusTotal for these hash types
         if vt_api:
@@ -248,9 +271,9 @@ def check_hash(hash_value: str, api: VirusExchangeAPI, vt_api: VirusTotalAPI | N
             result["vt_data"] = vt_results
         return result
     
-    # If hash length doesn't match known formats
+    # Should not reach here due to validate_hash above
     else:
-        return {"status": "Invalid hash length", "virustotal_url": None}
+        return {"status": "Invalid hash format", "virustotal_url": None}
 
 def write_to_csv(file_path: str, data: dict) -> None:
     # Export results to a CSV file with all the metadata we've collected
@@ -513,6 +536,12 @@ def update_env_file(api_key: str) -> None:
     # Write back to file
     with open(env_file, 'w') as f:
         f.writelines(content)
+    
+    # Set restrictive file permissions (owner read/write only)
+    try:
+        os.chmod(env_file, stat.S_IRUSR | stat.S_IWUSR)
+    except OSError:
+        pass
 
 def update_env_file_multiple(env_content: dict[str, str]) -> None:
     # Batch updates to the .env file with multiple API keys
@@ -545,132 +574,134 @@ def update_env_file_multiple(env_content: dict[str, str]) -> None:
     # Write back to file
     with open(env_file, 'w') as f:
         f.writelines(content)
+    
+    # Set restrictive file permissions (owner read/write only).
+    # On Windows os.chmod only controls the read-only flag, but we set it
+    # for consistency. True filesystem ACL restrictions on Windows would
+    # require platform-specific calls (e.g. icacls).
+    try:
+        os.chmod(env_file, stat.S_IRUSR | stat.S_IWUSR)
+    except OSError:
+        pass
 
 def main() -> None:
-    # Restore stderr only for controlled output
-    try:
-        # First save original args for later use to avoid potential stderr output
-        args_copy = sys.argv.copy()
-        
-        parser = argparse.ArgumentParser(description='Virus.xcheck CLI Tool')
-        # Original options
-        parser.add_argument('-f', '--file', help='Path to CSV file containing hashes')
-        parser.add_argument('-o', '--output', help='Path to output file (CSV or JSON format)')
-        parser.add_argument('-s', '--single', help='Single hash string to check')
-        
-        # API key options
-        parser.add_argument('-k', '--apikey', help='Virus.Exchange API key')
-        parser.add_argument('--vt-apikey', help='VirusTotal API key')
-        parser.add_argument('--save-config', action='store_true', help='Save API keys to .env file')
-        parser.add_argument('--no-color', action='store_true', help='Disable colored output')
-        
-        # New report options
-        parser.add_argument('--html', help='Generate HTML report with interactive charts')
-        
-        # Parse args with stderr still redirected to null_device
-        args = parser.parse_args(args_copy[1:])
-        
-        # Now we can safely restore stderr for our controlled output
-        sys.stderr = original_stderr
-        
-        # Check if no arguments were provided
-        if len(args_copy) == 1:
-            print(__doc__)  # Print ASCII art
-            parser.print_help()  # Print help message
-            sys.exit(1)  # Exit the script
-        
-        # Disable colors if requested
-        if args.no_color:
-            colorama.deinit()
-        
-        # Get API keys from command line or .env file
-        api_key = args.apikey if args.apikey else DEFAULT_API_KEY
-        vt_api_key = args.vt_apikey if args.vt_apikey else DEFAULT_VT_API_KEY
-        
-        if not api_key:
-            print(f"{Fore.RED}Error: No Virus.Exchange API key provided. Please specify an API key using the -k/--apikey option or add it to the .env file.{Style.RESET_ALL}")
-            sys.exit(1)
-        
-        # Save API keys to .env file if requested
-        if args.save_config:
-            env_content = {}
-            if args.apikey:
-                env_content["VIRUSXCHECK_API_KEY"] = args.apikey
-            if args.vt_apikey:
-                env_content["VIRUSTOTAL_API_KEY"] = args.vt_apikey
-            
-            if env_content:
-                update_env_file_multiple(env_content)
-                print(f"{Fore.GREEN}API key(s) saved to .env file{Style.RESET_ALL}")
-        
-        # Initialize API client
-        api = VirusExchangeAPI(api_key)
-        
-        # Initialize VirusTotal API client if API key is provided
-        vt_api = None
-        if vt_api_key:
-            vt_api = VirusTotalAPI(vt_api_key)
-            print(f"{Fore.GREEN}VirusTotal API integration enabled{Style.RESET_ALL}")
-        else:
-            print(f"{Fore.YELLOW}VirusTotal API integration disabled. Use --vt-apikey to enable.{Style.RESET_ALL}")
-        
+    parser = argparse.ArgumentParser(description='Virus.xcheck CLI Tool')
+    parser.add_argument('-f', '--file', help='Path to CSV file containing hashes')
+    parser.add_argument('-o', '--output', help='Path to output file (CSV or JSON format)')
+    parser.add_argument('-s', '--single', help='Single hash string to check')
+    parser.add_argument('--save-config', action='store_true',
+                        help='Interactively save API keys to .env file')
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output')
+    parser.add_argument('--html', help='Generate HTML report with interactive charts')
+
+    args = parser.parse_args()
+
+    # Check if no arguments were provided
+    if len(sys.argv) == 1:
+        print(__doc__)  # Print ASCII art
+        parser.print_help()
+        sys.exit(1)
+
+    # Disable colors if requested
+    if args.no_color:
+        colorama.deinit()
+
+    # Save API keys interactively if requested
+    if args.save_config:
+        env_content = {}
         try:
-            # Handle single hash string
-            if args.single:
-                results = {args.single: check_hash(args.single, api, vt_api)}
-            # Handle CSV file with hashes
-            elif args.file:
-                hash_values = read_csv(args.file)
-                results = {}
-                
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                    # Create a tqdm progress bar
-                    tasks = {executor.submit(check_hash, hash_value, api, vt_api): hash_value for hash_value in hash_values}
-                    for future in tqdm(concurrent.futures.as_completed(tasks), total=len(tasks), desc="Processing"):
-                        hash_value = tasks[future]
-                        results[hash_value] = future.result()
-            else:
-                print(f"{Fore.RED}Error: Please provide a hash string or a path to a CSV file containing hashes.{Style.RESET_ALL}")
-                exit(1)
-        except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}Operation cancelled by user. Exiting.{Style.RESET_ALL}")
+            vx_key = input("Enter Virus.Exchange API key (leave blank to skip): ").strip()
+            if vx_key:
+                env_content["VIRUSXCHECK_API_KEY"] = vx_key
+            vt_key = input("Enter VirusTotal API key (leave blank to skip): ").strip()
+            if vt_key:
+                env_content["VIRUSTOTAL_API_KEY"] = vt_key
+        except (EOFError, KeyboardInterrupt):
+            print(f"\n{Fore.YELLOW}Config save cancelled.{Style.RESET_ALL}")
             sys.exit(0)
+        
+        if env_content:
+            update_env_file_multiple(env_content)
+            print(f"{Fore.GREEN}API key(s) saved to .env file{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}No keys provided. Nothing saved.{Style.RESET_ALL}")
+        
+        # If save-config was the only action, exit
+        if not args.single and not args.file:
+            sys.exit(0)
+    
+    # API keys come only from environment variables or .env file
+    api_key = DEFAULT_API_KEY
+    vt_api_key = DEFAULT_VT_API_KEY
+    
+    if not api_key:
+        print(f"{Fore.RED}Error: No Virus.Exchange API key found. Set VIRUSXCHECK_API_KEY in your environment or .env file, or use --save-config to save it.{Style.RESET_ALL}")
+        sys.exit(1)
+    
+    # Initialize API client
+    api = VirusExchangeAPI(api_key)
+    
+    # Initialize VirusTotal API client if API key is provided
+    vt_api = None
+    if vt_api_key:
+        vt_api = VirusTotalAPI(vt_api_key)
+        print(f"{Fore.GREEN}VirusTotal API integration enabled{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}VirusTotal API integration disabled. Set VIRUSTOTAL_API_KEY in your environment or .env file to enable.{Style.RESET_ALL}")
+    
+    try:
+        # Handle single hash string
+        if args.single:
+            if not SHA256_PATTERN.match(args.single) and validate_hash(args.single) is None:
+                print(f"{Fore.RED}Error: Invalid hash format. Provide a valid hex hash (MD5, SHA-1, SHA-256 or SHA-512).{Style.RESET_ALL}")
+                sys.exit(1)
+            results = {args.single: check_hash(args.single, api, vt_api)}
+        # Handle CSV file with hashes
+        elif args.file:
+            hash_values = read_csv(args.file)
+            results = {}
             
-        # Generate HTML report if requested
-        if args.html:
-            if not HTML_REPORTER_AVAILABLE:
-                print(f"{Fore.RED}Error: HTML report generation requires additional dependencies. Please install them using:")
-                print(f"pip install jinja2 plotly pandas{Style.RESET_ALL}")
-                if not args.output: # Only exit if this is the only output
-                    sys.exit(1)
-            else:
-                try:
-                    html_file = generate_html_report(results, args.html)
-                    print(f"{Fore.GREEN}HTML report saved to {html_file}{Style.RESET_ALL}")
-                except Exception as e:
-                    print(f"{Fore.RED}Error generating HTML report: {e}{Style.RESET_ALL}")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                tasks = {executor.submit(check_hash, hash_value, api, vt_api): hash_value for hash_value in hash_values}
+                for future in tqdm(concurrent.futures.as_completed(tasks), total=len(tasks), desc="Processing"):
+                    hash_value = tasks[future]
+                    results[hash_value] = future.result()
+        else:
+            print(f"{Fore.RED}Error: Please provide a hash string or a path to a CSV file containing hashes.{Style.RESET_ALL}")
+            sys.exit(1)
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}Operation cancelled by user. Exiting.{Style.RESET_ALL}")
+        sys.exit(0)
+        
+    # Generate HTML report if requested
+    if args.html:
+        if not HTML_REPORTER_AVAILABLE:
+            print(f"{Fore.RED}Error: HTML report generation requires additional dependencies. Please install them using:")
+            print(f"pip install virusxcheck[report]{Style.RESET_ALL}")
+            if not args.output:
+                sys.exit(1)
+        else:
+            try:
+                html_file = generate_html_report(results, args.html)
+                print(f"{Fore.GREEN}HTML report saved to {html_file}{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"{Fore.RED}Error generating HTML report: {e}{Style.RESET_ALL}")
 
-        # Output raw results
-        if args.output:
-            file_extension = args.output.split('.')[-1].lower()
-            if file_extension == 'csv':
-                write_to_csv(args.output, results)
-                print(f"{Fore.GREEN}Results saved to {args.output}{Style.RESET_ALL}")
-            elif file_extension == 'json':
-                write_to_json(args.output, results)
-                print(f"{Fore.GREEN}Results saved to {args.output}{Style.RESET_ALL}")
-            else:
-                print(f"{Fore.RED}Error: Output file must have a .csv or .json extension{Style.RESET_ALL}")
-                exit(1)
-        elif not (args.html):
-            # Only pretty print if no other output format is requested
-            pretty_print_results(results)
-
-    finally:
-        # Always restore stderr at the end
-        sys.stderr = original_stderr
-        # Close the null device
-        null_device.close()
+    # Output raw results
+    if args.output:
+        file_extension = args.output.split('.')[-1].lower()
+        if file_extension == 'csv':
+            write_to_csv(args.output, results)
+            print(f"{Fore.GREEN}Results saved to {args.output}{Style.RESET_ALL}")
+        elif file_extension == 'json':
+            write_to_json(args.output, results)
+            print(f"{Fore.GREEN}Results saved to {args.output}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}Error: Output file must have a .csv or .json extension{Style.RESET_ALL}")
+            sys.exit(1)
+    elif not args.html:
+        # Only pretty print if no other output format is requested
+        pretty_print_results(results)
 
 if __name__ == "__main__":
     main()

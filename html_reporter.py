@@ -7,12 +7,19 @@ from __future__ import annotations
 
 import os
 import json
-import pandas as pd
-import plotly.graph_objects as go
-import plotly.io as pio
-from plotly.subplots import make_subplots
-from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
+
+try:
+    import pandas as pd
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    from plotly.subplots import make_subplots
+    from jinja2 import Environment, FileSystemLoader
+except ImportError as e:
+    raise ImportError(
+        "HTML report generation requires additional dependencies. "
+        "Install them with: pip install virusxcheck[report]"
+    ) from e
 
 # Define HTML template
 HTML_TEMPLATE = """<!DOCTYPE html>
