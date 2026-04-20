@@ -2,6 +2,8 @@
 PDF Report Generator module for Virus.xcheck
 """
 
+from __future__ import annotations
+
 import os
 from datetime import datetime
 from fpdf2 import FPDF
@@ -14,13 +16,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, mm
 
 
-class VirusXcheckPDF(FPDF):   
-    def __init__(self):
+class VirusXcheckPDF(FPDF):
+    def __init__(self) -> None:
         super().__init__()
         self.WIDTH = 210
         self.HEIGHT = 297
-        
-    def header(self):
+
+    def header(self) -> None:
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
         if os.path.exists(logo_path):
             self.image(logo_path, 10, 8, 33)
@@ -36,7 +38,7 @@ class VirusXcheckPDF(FPDF):
         self.cell(0, 10, f'Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 0, 'R')
         self.ln(20)
         
-    def footer(self):
+    def footer(self) -> None:
         """Create footer with page numbers"""
         self.set_y(-15)
         self.set_font('helvetica', 'I', 8)
@@ -46,13 +48,13 @@ class VirusXcheckPDF(FPDF):
 
 
 class PDFReporter:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pdf = VirusXcheckPDF()
         self.pdf.set_auto_page_break(auto=True, margin=15)
         self.pdf.add_page()
         self.pdf.alias_nb_pages()
         
-    def add_summary_section(self, results):
+    def add_summary_section(self, results: dict) -> None:
         # Calculate summary statistics
         total_hashes = len(results)
         vx_found = sum(1 for details in results.values() if 'Found in VX database' in details['status'])
@@ -132,7 +134,7 @@ class PDFReporter:
         
         self.pdf.ln(8)
 
-    def add_detailed_results(self, results):
+    def add_detailed_results(self, results: dict) -> None:
         # detailed results for each hash
         # Section header
         self.pdf.set_font('helvetica', 'B', 16)
@@ -241,13 +243,13 @@ class PDFReporter:
             self.pdf.line(10, self.pdf.get_y(), 200, self.pdf.get_y())
             self.pdf.ln(8)
     
-    def generate_report(self, results, output_file):
+    def generate_report(self, results: dict, output_file: str) -> str:
         # Generate the PDF report
         self.add_summary_section(results)
         self.add_detailed_results(results)
         self.pdf.output(output_file)
         return output_file
 
-def generate_pdf_report(results, output_file):
+def generate_pdf_report(results: dict, output_file: str) -> str:
     reporter = PDFReporter()
     return reporter.generate_report(results, output_file)
